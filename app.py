@@ -63,6 +63,29 @@ def login():
         }
     }), 200
 
+@app.route('/user/history', methods=['GET'])
+@jwt_required()
+def get_user_history():
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    if not current_user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    history_books = current_user.history_books
+    
+    user_reviews = {
+        review.book_id: {'text': review.text, 'rating': review.rating}
+        for review in current_user.given_ratings
+    }
+    
+    return jsonify([{
+        'id': book.id,
+        'name': book.name,
+        'author': book.author,
+        'category': book.category.name,
+        'review': user_reviews.get(book.id)
+    } for book in history_books]), 200
+
 @app.route('/categories', methods=['POST'])
 @jwt_required()
 def create_category():
@@ -282,7 +305,7 @@ def create_review(book_id):
     
     try:
         rating = float(data['rating'])
-        if rating < 0 or rating > 10:
+        if rating < 0 or rating > 5:
             return jsonify({'error': 'Rating must be between 0 and 5'}), 400
     except ValueError:
         return jsonify({'error': 'Rating must be a number'}), 400

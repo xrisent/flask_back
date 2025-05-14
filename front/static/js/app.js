@@ -14,6 +14,7 @@ class App {
   async loadLoginPage() {
     const response = await fetch("templates/login.html");
     const html = await response.text();
+    document.getElementById("profile").innerHTML = "";
     document.getElementById("app").innerHTML = html;
 
     this.setupLoginForm();
@@ -22,6 +23,7 @@ class App {
   async loadRegisterPage() {
     const response = await fetch("templates/register.html");
     const html = await response.text();
+    document.getElementById("profile").innerHTML = "";
     document.getElementById("app").innerHTML = html;
 
     this.setupRegisterForm();
@@ -35,11 +37,195 @@ class App {
               auth.currentUser.is_librarian ? "Librarian" : "Regular User"
             }</p>
             <button id="logout-btn">Logout</button>
+            ${
+              !auth.isLibrarian()
+                ? '<button id="history-btn">My Borrow History</button>'
+                : ""
+            }
+            ${
+              auth.isLibrarian()
+                ? '<button id="create-book-btn">Create New Book</button>'
+                : ""
+            }
         `;
+
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      api.logout();
+      auth.clearUser();
+      this.loadLoginPage();
+    });
+
+    if (document.getElementById("history-btn")) {
+      document.getElementById("history-btn").addEventListener("click", () => {
+        this.loadHistoryPage();
+      });
+    }
+
+    if (document.getElementById("create-book-btn")) {
+      document
+        .getElementById("create-book-btn")
+        .addEventListener("click", () => {
+          this.showCreateBookForm();
+        });
+    }
+
     if (auth.isLibrarian()) {
       await this.loadRequestsPage();
     } else {
       await this.loadBooksPage();
+    }
+  }
+
+  async loadHistoryPage() {
+    try {
+      const history = await api.getBorrowHistory();
+      const html = `
+                <div class="history-container">
+                    <h2>My Borrow History</h2>
+                    <button id="back-to-books">Back to Books</button>
+                    <div id="history-list">
+                        ${history
+                          .map(
+                            (book) => `
+                            <div class="history-item" data-id="${book.id}">
+                                <h3>${book.name}</h3>
+                                <p>Author: ${book.author}</p>
+                                <p>Category: ${book.category}</p>
+                                ${
+                                  book.review
+                                    ? `
+                                    <div class="review">
+                                        <p>Your Review: ${book.review.text}</p>
+                                        <p>Rating: ${book.review.rating}/5</p>
+                                    </div>
+                                `
+                                    : `
+                                    <div class="add-review">
+                                        <textarea id="review-text-${
+                                          book.id
+                                        }" placeholder="Your review"></textarea>
+                                        <select id="review-rating-${book.id}">
+                                            ${[1, 2, 3, 4, 5]
+                                              .map(
+                                                (n) =>
+                                                  `<option value="${n}">${n} Star${
+                                                    n !== 1 ? "s" : ""
+                                                  }</option>`
+                                              )
+                                              .join("")}
+                                        </select>
+                                        <button class="submit-review" data-id="${
+                                          book.id
+                                        }">Submit Review</button>
+                                    </div>
+                                `
+                                }
+                            </div>
+                        `
+                          )
+                          .join("")}
+                    </div>
+                </div>
+            `;
+
+      document.getElementById("app").innerHTML = html;
+
+      document.getElementById("back-to-books").addEventListener("click", () => {
+        this.loadBooksPage();
+      });
+
+      document.querySelectorAll(".submit-review").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          const bookId = e.target.dataset.id;
+          const text = document.getElementById(`review-text-${bookId}`).value;
+          const rating = document.getElementById(
+            `review-rating-${bookId}`
+          ).value;
+
+          if (!text.trim()) {
+            alert("Please enter your review text");
+            return;
+          }
+
+          try {
+            await api.createReview(bookId, text, parseInt(rating));
+            alert("Review submitted successfully!");
+            this.loadHistoryPage();
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+      });
+    } catch (error) {
+      alert("Failed to load history: " + error.message);
+      this.loadBooksPage();
+    }
+  }
+
+  showCreateBookForm() {
+    const formHtml = `
+            <div class="modal-overlay">
+                <div class="create-book-form">
+                    <h2>Create New Book</h2>
+                    <form id="book-creation-form">
+                        <div class="form-group">
+                            <label for="book-name">Book Name:</label>
+                            <input type="text" id="book-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="book-author">Author:</label>
+                            <input type="text" id="book-author" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="book-category">Category:</label>
+                            <input type="text" id="book-category" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">Create Book</button>
+                            <button type="button" id="cancel-create" class="btn-secondary">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+    document.body.insertAdjacentHTML("beforeend", formHtml);
+
+    document
+      .getElementById("book-creation-form")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById("book-name").value;
+        const author = document.getElementById("book-author").value;
+        const category = document.getElementById("book-category").value;
+
+        if (!name || !author || !category) {
+          alert("Please fill in all fields");
+          return;
+        }
+
+        try {
+          await api.createBook(name, author, category);
+          alert("Book created successfully!");
+          this.closeCreateBookForm();
+          if (auth.isLibrarian()) {
+            await this.loadRequestsPage();
+          }
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+    document.getElementById("cancel-create").addEventListener("click", () => {
+      this.closeCreateBookForm();
+    });
+  }
+
+  closeCreateBookForm() {
+    const modal = document.querySelector(".modal-overlay");
+    if (modal) {
+      modal.remove();
     }
   }
 
