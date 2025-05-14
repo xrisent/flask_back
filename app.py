@@ -128,6 +128,34 @@ def get_all_categories():
         } for category in categories
     ]), 200
 
+@app.route('/categories/<int:category_id>/books', methods=['GET'])
+def get_books_by_category(category_id):
+    category = Category.query.get(category_id)
+    if not category:
+        return jsonify({'error': 'Category not found'}), 404
+    
+    books = Book.query.filter_by(category_id=category_id).all()
+    
+    books_data = []
+    for book in books:
+        book_data = {
+            'id': book.id,
+        'name': book.name,
+        'author': book.author,
+        'category': book.category.name,
+        'rating': book.rating,
+        'current_borrowers': [{
+            'id': user.id,
+            'name': user.name,
+            'email': user.email
+        } for user in book.current_borrowers],
+        'available': len(book.current_borrowers) == 0,
+        'reviews': [{'id': r.id, 'text': r.text, 'rating': r.rating} for r in book.reviews]
+        }
+        books_data.append(book_data)
+    
+    return jsonify(books_data), 200
+
 @app.route('/books', methods=['GET'])
 def get_all_books():
     books = Book.query.all()

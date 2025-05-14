@@ -105,6 +105,18 @@ class ApiService {
   async createBook(name, author, category) {
     return this.request("/books", "POST", { name, author, category });
   }
+
+  async createCategory(name) {
+    return this.request('/categories', 'POST', { name });
+  }
+
+  async getCategories() {
+    return this.request('/categories');
+  }
+
+  async getBooksByCategory(categoryId) {
+    return this.request(`/categories/${categoryId}/books`);
+  }
 }
 
 const api = new ApiService();

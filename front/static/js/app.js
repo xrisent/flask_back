@@ -47,6 +47,11 @@ class App {
                 ? '<button id="create-book-btn">Create New Book</button>'
                 : ""
             }
+            ${
+              auth.isLibrarian()
+                ? '<button id="create-category-btn">Create New Category</button>'
+                : ""
+            }
         `;
 
     document.getElementById("logout-btn").addEventListener("click", () => {
@@ -69,10 +74,74 @@ class App {
         });
     }
 
+    if (document.getElementById("create-category-btn")) {
+      document
+        .getElementById("create-category-btn")
+        .addEventListener("click", () => {
+          this.showCreateCategoryForm();
+        });
+    }
+
     if (auth.isLibrarian()) {
       await this.loadRequestsPage();
     } else {
       await this.loadBooksPage();
+    }
+  }
+
+  showCreateCategoryForm() {
+    const formHtml = `
+        <div class="modal-overlay">
+            <div class="create-category-form">
+                <h2>Create New Category</h2>
+                <form id="category-creation-form">
+                    <div class="form-group">
+                        <label for="category-name">Category Name:</label>
+                        <input type="text" id="category-name" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Create Category</button>
+                        <button type="button" id="cancel-category-create" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", formHtml);
+
+    document
+      .getElementById("category-creation-form")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById("category-name").value;
+
+        if (!name.trim()) {
+          alert("Please enter a category name");
+          return;
+        }
+
+        try {
+          await api.createCategory(name);
+          alert("Category created successfully!");
+          this.closeCreateCategoryForm();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+    document
+      .getElementById("cancel-category-create")
+      .addEventListener("click", () => {
+        this.closeCreateCategoryForm();
+      });
+  }
+
+  closeCreateCategoryForm() {
+    const modal = document.querySelector(".modal-overlay");
+    if (modal) {
+      modal.remove();
     }
   }
 
@@ -230,7 +299,7 @@ class App {
   }
 
   async loadBooksPage() {
-    const [booksResponse, categoriesResponse] = await Promise.all([
+    const [booksResponse, categories] = await Promise.all([
       fetch("templates/books.html"),
       api.getCategories(),
     ]);
@@ -238,8 +307,33 @@ class App {
     const booksHtml = await booksResponse.text();
     document.getElementById("app").innerHTML = booksHtml;
 
+    // Add category filter dropdown
+    const filterContainer = document.createElement("div");
+    filterContainer.className = "category-filter";
+    filterContainer.innerHTML = `
+        <select id="category-filter">
+            <option value="">All Categories</option>
+            ${categories
+              .map((cat) => `<option value="${cat.id}">${cat.name}</option>`)
+              .join("")}
+        </select>
+        <button id="apply-filter">Apply Filter</button>
+    `;
+    document.getElementById("app").prepend(filterContainer);
+
     const books = await api.getBooks();
     this.renderBooks(books);
+
+    // Setup filter event
+    document
+      .getElementById("apply-filter")
+      .addEventListener("click", async () => {
+        const categoryId = document.getElementById("category-filter").value;
+        const books = categoryId
+          ? await api.getBooksByCategory(categoryId)
+          : await api.getBooks();
+        this.renderBooks(books);
+      });
 
     this.setupBookEvents();
   }
