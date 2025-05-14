@@ -24,10 +24,20 @@
 ## Установка и запуск
 
 1. Клонируйте репозиторий и перейдите в папку проекта:
-```git clone <репозиторий> 
+```
+git clone <репозиторий> 
 cd <репозиторий>
 python -m venv venv
 venv/scripts/activate
+pip install -r req.txt
+python ./app.py
+```
+Или если у вас Linux, macOS
+```
+git clone <репозиторий>
+cd <репозиторий>
+python -m venv venv
+source venv/bin/activate 
 pip install -r req.txt
 python ./app.py
 ```
