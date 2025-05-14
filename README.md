@@ -29,6 +29,7 @@ cd <репозиторий>
 python -m venv venv
 venv/scripts/activate
 pip install -r req.txt
-python ./app.py```
+python ./app.py
+```
 
 Приложение будет доступно по адресу: http://127.0.0.1:5000/
