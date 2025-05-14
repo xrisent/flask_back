@@ -3,8 +3,10 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from models import db, User, Category, Book, Review, RequestedBorrow
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta
+from flask_cors import CORS  # Add this import at the top
 
 app = Flask(__name__)
+CORS(app, origins=["http://127.0.0.1:5500"], supports_credentials=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'secret-key' 
@@ -112,6 +114,11 @@ def get_all_books():
         'author': book.author,
         'category': book.category.name,
         'rating': book.rating,
+        'current_borrowers': [{
+            'id': user.id,
+            'name': user.name,
+            'email': user.email
+        } for user in book.current_borrowers],
         'available': len(book.current_borrowers) == 0,
         'reviews': [{'id': r.id, 'text': r.text, 'rating': r.rating} for r in book.reviews]
     } for book in books]), 200
@@ -246,7 +253,10 @@ def return_book(book_id):
         return jsonify({'error': 'You have not borrowed this book'}), 400
     
     book.current_borrowers.remove(user)
-    book.past_borrowers.append(user)
+    
+    if user not in book.past_borrowers:
+        book.past_borrowers.append(user)
+    
     db.session.commit()
     
     return jsonify({'message': 'Book returned successfully'}), 200

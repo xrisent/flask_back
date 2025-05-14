@@ -32,6 +32,10 @@ class Book(db.Model):
     author = db.Column(db.String(100), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     reviews = db.relationship('Review', backref='book', lazy=True)
+
+    @property
+    def available(self):
+        return len(self.current_borrowers) == 0
     
     @property
     def rating(self):
